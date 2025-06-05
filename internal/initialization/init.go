@@ -40,6 +40,7 @@ type AppServices struct {
 	InstallerService     service.InstallerService // 非 K8s 服务
 	AuthService          *service.AuthService
 	ProxyService         *service.ProxyService // ProxyService 可能仍需 rest.Config，但会动态获取
+	EtcdService          *service.EtcdService  // EtcdService 用来管理 Etcd 的资源
 }
 
 type AppHandlers struct {
@@ -62,6 +63,7 @@ type AppHandlers struct {
 	InstallerHandler     *handlers.InstallerHandler // 非 K8s 处理器
 	AuthHandler          *handlers.AuthHandler
 	ProxyHandler         *handlers.ProxyHandler
+	EtcdHandler          *handlers.EtcdHandler // EtcdService 用来管理 Etcd 的资源
 }
 
 func InitializeServices(
@@ -110,6 +112,7 @@ func InitializeServices(
 		services.StatefulSetService = service.NewStatefulSetService()
 		services.NodeService = service.NewNodeService()
 		services.NamespaceService = service.NewNamespaceService()
+		services.EtcdService = service.NewEtcdService() // 初始化 EtcdService
 		// services.SummaryService = service.NewSummaryService()
 		// services.EventsService = service.NewEventsService()
 		// services.RbacService = service.NewRbacService()
@@ -192,6 +195,9 @@ func InitializeHandlers(
 	}
 	if services.NamespaceService != nil {
 		appHandlers.NamespaceHandler = handlers.NewNamespaceHandler(services.NamespaceService, k8sClusterManager)
+	}
+	if services.EtcdService != nil {
+		appHandlers.EtcdHandler = handlers.NewEtcdHandler(services.EtcdService, k8sClusterManager)
 	}
 	// if services.SummaryService != nil {
 	// 	appHandlers.SummaryHandler = handlers.NewSummaryHandler(services.SummaryService, k8sClusterManager)
@@ -384,6 +390,9 @@ func SetupRouter(
 					// KubernetesProxyRoutes 应该在 clusterSpecificRoutes 下注册
 					// 例如: /api/v1/clusters/{cluster_name}/proxy/...
 					routes.KubernetesProxyRoutes(clusterSpecificRoutes, appHandlers.ProxyHandler)
+				}
+				if appHandlers.EtcdHandler != nil {
+					routes.RegisterEtcdRoutes(clusterSpecificRoutes, appHandlers.EtcdHandler)
 				}
 				log.Println("特定集群的 Kubernetes API 路由注册尝试完成。")
 			} else {
